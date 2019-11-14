@@ -60,15 +60,7 @@ func hasBeenModified() bool {
 }
 
 func handleChatGetAll(w http.ResponseWriter, r *http.Request) {
-	server.lock.Lock()
-	defer server.lock.Unlock()
-	var err error
-	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
-	defer server.DB.Close()
+	refreshChats()
 
 	// Sort chats
 	chats := make(map[int]*Chat, 0)
