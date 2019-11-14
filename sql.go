@@ -64,7 +64,7 @@ func parseChatRows(rows *sql.Rows) []*Chat {
 
 func getAllMessagesInChat(chatID string) ([]Message, error) {
 	// Default to handle ID, check if it's a group chat
-	selector := "handle.id"
+	selector := "chat.room_name IS NULL AND handle.id"
 	if strings.Contains(chatID, "chat") {
 		selector = "chat.chat_identifier"
 	}
@@ -122,6 +122,9 @@ func isNewMessage(chatID string) bool {
 	return false
 }
 
+// Get group chats?
+//sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.is_from_me = 0 AND chat.service_name = 'iMessage' AND message.handle_id > 0 ORDER BY message.date DESC"
+
 func refreshChats() {
 	server.lock.Lock()
 	defer server.lock.Unlock()
@@ -134,7 +137,7 @@ func refreshChats() {
 	}
 	defer server.DB.Close()
 
-	sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.is_from_me = 0 AND chat.service_name = 'iMessage' AND message.handle_id > 0 ORDER BY message.date DESC"
+	sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM chat LEFT OUTER JOIN chat_message_join ON chat.ROWID = chat_message_join.chat_id WHERE chat.service_name = 'iMessage' ORDER BY chat_message_join.message_date DESC"
 	rows, err := query(sql)
 	if err != nil {
 		log.Error().Msg(err.Error())
