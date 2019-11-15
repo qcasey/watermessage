@@ -42,6 +42,9 @@ func parseMessageRows(rows *sql.Rows) []Message {
 		if err != nil {
 			log.Error().Msg(err.Error())
 		}
+		if m.Handle.ID == nil {
+			*m.Handle.ID = "me"
+		}
 		out = append(out, m)
 	}
 	return out
