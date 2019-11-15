@@ -81,6 +81,5 @@ func parseChatRows(rows *sql.Rows) []*Chat {
 		rows.Scan(&c.RowID, &c.ID, &c.Name, &c.DisplayName)
 		out = append(out, &c)
 	}
-	//log.Info().Msg(fmt.Sprintf("Counted %d chats", len(out)))
 	return out
 }
