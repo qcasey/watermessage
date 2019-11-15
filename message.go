@@ -8,6 +8,33 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Thanks to linjunpop
+// https://github.com/linjunpop/imessage/blob/master/lib/imessage/sender.rb
+const sendFileScript = `
+	on run argv
+		set toAddress to first item of argv
+		set theFilePath to second item of argv
+		set theFile to POSIX file theFilePath
+		tell application "System Events"
+				if exists file theFilePath then
+						tell application "Messages"
+								send theFile to buddy toAddress of (service 1 whose service type is iMessage)
+						end tell
+				else
+						error "File does not exist."
+				end if
+		end tell
+	end run`
+
+const sendMessageScript = `
+	on run argv
+		set toAddress to first item of argv
+		set message to second item of argv
+		tell application "Messages"
+			send message to buddy toAddress of (service 1 whose service type is iMessage)
+		end tell
+	end run`
+
 // Message corresponds to each row in 'message' table
 type Message struct {
 	RowID         string       `json:"RowID"`
