@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/user"
 	"time"
 
 	"github.com/MrDoctorKovacic/MDroid-Core/format"
@@ -15,11 +16,19 @@ import (
 
 const (
 	//AttachmentDirectory = "~/Library/Messages/Attachments/"
-	AttachmentDirectory = "~/Downloads/"
-	Port                = ":1358"
+	LocalDirectory = "/Downloads/"
+	Port           = ":1358"
 )
 
 func startRouter() {
+
+	// get user directory
+	user, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	attachmentsDirectory := fmt.Sprintf("%s%s", user.HomeDir, LocalDirectory)
+
 	// Init router
 	router := mux.NewRouter()
 
@@ -32,7 +41,7 @@ func startRouter() {
 
 	router.
 		PathPrefix("/attachments/").
-		Handler(http.StripPrefix("/attachments/", http.FileServer(http.Dir(AttachmentDirectory))))
+		Handler(http.StripPrefix("/attachments/", http.FileServer(http.Dir(attachmentsDirectory))))
 
 	//
 	// Finally, welcome and meta routes
