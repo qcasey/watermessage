@@ -18,6 +18,7 @@ type Chat struct {
 	DisplayName     string    `json:"DisplayName"`
 	ServiceName     string    `json:"ServiceName"`
 	Messages        []Message `json:"Messages"`
+	Recipients      []Handle  `json:"Recipients"`
 	LastMessageDate int       `json:"LastMessageDate"`
 	lock            sync.RWMutex
 }
