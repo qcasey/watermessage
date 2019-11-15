@@ -3,13 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"net/http"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/MrDoctorKovacic/MDroid-Core/format"
-	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,43 +18,6 @@ type ServerType struct {
 	LastModified time.Time
 	Attachments  map[string]Attachment
 	lock         sync.RWMutex
-}
-
-type Chat struct {
-	RowID           int       `json:RowID`
-	ID              string    `json:ID`
-	Name            string    `json:Name`
-	DisplayName     string    `json:DisplayName`
-	ServiceName     string    `json:DisplayName`
-	Messages        []Message `json:Messages`
-	LastMessageDate int       `json:LastMessageDate`
-	lock            sync.RWMutex
-}
-
-type Message struct {
-	RowID         string       `json:RowID,omitempty`
-	Text          *string      `json:Text`
-	IsFromMe      bool         `json:IsFromMe`
-	HasAttachment bool         `json:HasAttachment`
-	Delivered     bool         `json:Delivered`
-	Date          int          `json:Date`
-	DateDelivered int          `json:DateDelivered`
-	DateRead      int          `json:DateRead`
-	Handle        Handle       `json:Handle`
-	Attachments   []Attachment `json:Attachment`
-}
-
-type Handle struct {
-	ID *string `json:ID`
-}
-
-type Attachment struct {
-	MessageID     *string `json:MessageID`
-	ID            *string `json:ID`
-	Filename      *string `json:Filename`
-	MIMEType      *string `json:MIMEType`
-	TransferState int     `json:TransferState`
-	TotalBytes    int     `json:TotalBytes`
 }
 
 func hasBeenModified() bool {
@@ -72,43 +32,38 @@ func hasBeenModified() bool {
 	return false
 }
 
-func handleAttachmentsGetAll(w http.ResponseWriter, r *http.Request) {
-	server.lock.RLock()
-	defer server.lock.RUnlock()
-	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: server.Attachments})
-}
-
-func handleAttachmentsGet(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	server.lock.RLock()
-	defer server.lock.RUnlock()
-
-	attachment, ok := server.Attachments[params["id"]]
+func isNewMessage(chatID string) bool {
+	serverChat, ok := server.ChatMap[chatID]
 	if !ok {
-		em := fmt.Sprintf("Could not fetch attachment id %s. It likely doesn't exist", params["id"])
-		log.Error().Msg(em)
-		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: ""})
+		return true
 	}
 
-	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: attachment})
-}
-
-func handleChatGetAll(w http.ResponseWriter, r *http.Request) {
-	refreshChats()
-
-	// Sort chats
-	chats := make(map[int]*Chat, 0)
-	for _, chat := range server.ChatMap {
-		chats[chat.LastMessageDate] = chat
+	sql := fmt.Sprintf("SELECT message_date FROM chat_message_join LEFT OUTER JOIN chat ON chat.ROWID = chat_message_join.chat_id WHERE chat_id = %d AND chat.service_name = 'iMessage' ORDER BY message_date DESC LIMIT 1", serverChat.RowID)
+	rows, err := query(sql)
+	if err != nil {
+		return true
+	}
+	defer rows.Close()
+	var lastMessageDate int
+	for rows.Next() {
+		rows.Scan(&lastMessageDate)
 	}
 
-	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: chats})
+	if serverChat.LastMessageDate != lastMessageDate {
+		log.Info().Msg(fmt.Sprintf("Row %d not found, last recorded date is %d while the server shows %d", serverChat.RowID, lastMessageDate, serverChat.LastMessageDate))
+		return true
+	}
+
+	return false
 }
 
-func handleChatGet(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
+// Get group chats?
+//sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.is_from_me = 0 AND chat.service_name = 'iMessage' AND message.handle_id > 0 ORDER BY message.date DESC"
+
+func refreshChats() {
 	server.lock.Lock()
 	defer server.lock.Unlock()
+
 	var err error
 	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
 	if err != nil {
@@ -117,34 +72,32 @@ func handleChatGet(w http.ResponseWriter, r *http.Request) {
 	}
 	defer server.DB.Close()
 
-	chat, err := getAllMessagesInChat(params["id"])
-	if err != nil {
-		log.Error().Msg(err.Error())
-		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: err.Error()})
-		return
-	}
-
-	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: chat})
-}
-
-func handleChatGetLast(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	server.lock.Lock()
-	defer server.lock.Unlock()
-	var err error
-	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
+	sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM chat LEFT OUTER JOIN chat_message_join ON chat.ROWID = chat_message_join.chat_id WHERE chat.service_name = 'iMessage' ORDER BY chat_message_join.message_date DESC"
+	rows, err := query(sql)
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return
 	}
-	defer server.DB.Close()
+	newChats := parseChatRows(rows)
 
-	message, err := getLastMessageInChat(params["id"])
-	if err != nil {
-		log.Error().Msg(err.Error())
-		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: err.Error()})
-		return
+	start := time.Now()
+	updatedChats := 0
+	for _, chat := range newChats {
+		// Only fetch entire chat history if there are new messages
+		if isNewMessage(chat.ID) {
+			updatedChats++
+			chat.Messages, err = getAllMessagesInChat(chat.ID)
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
+			if len(chat.Messages) > 0 {
+				chat.LastMessageDate = chat.Messages[0].Date
+				server.ChatMap[chat.ID] = chat
+			} else {
+				log.Debug().Msg(fmt.Sprintf("0 messages in row %d, %s", chat.RowID, chat.ID))
+			}
+		}
 	}
 
-	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: message})
+	log.Debug().Msg(fmt.Sprintf("Took %dms to parse %d rows", time.Since(start).Milliseconds(), updatedChats))
 }
