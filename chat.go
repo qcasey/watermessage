@@ -38,12 +38,8 @@ func handleChatGet(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	server.lock.Lock()
 	defer server.lock.Unlock()
-	var err error
-	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
+
+	server.openDB()
 	defer server.DB.Close()
 
 	chat, err := getAllMessages(params["id"])
@@ -60,12 +56,8 @@ func handleChatGetLast(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	server.lock.Lock()
 	defer server.lock.Unlock()
-	var err error
-	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
+
+	server.openDB()
 	defer server.DB.Close()
 
 	message, err := getLastMessage(params["id"])

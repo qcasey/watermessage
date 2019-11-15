@@ -22,16 +22,23 @@ type ServerType struct {
 	lock         sync.RWMutex
 }
 
+func (s *ServerType) openDB() {
+	var err error
+	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+}
+
 func query(SQL string) (*sql.Rows, error) {
 	log.Debug().Msg(SQL)
 
-	if server.DB == nil {
+	// Open new connection to the DB if it's been closed.
+	// Some connections are persistent, to speed up rapid fire queries
+	if err := server.DB.Ping(); err != nil {
 		log.Info().Msg("Creating new DB connection")
-		var err error
-		server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
-		if err != nil {
-			return nil, err
-		}
+		server.openDB()
 		defer server.DB.Close()
 	}
 
