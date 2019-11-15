@@ -13,14 +13,25 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	AttachmentDirectory = "~/Library/Messages/Attachments/"
+	Port                = ":1358"
+)
+
 func startRouter() {
 	// Init router
 	router := mux.NewRouter()
 
-	//router.HandleFunc("/{device}/{command}", pybus.ParseCommand).Methods("GET")
 	router.HandleFunc("/chats", handleChatGetAll).Methods("GET")
 	router.HandleFunc("/chats/{id}", handleChatGet).Methods("GET")
 	router.HandleFunc("/chats/{id}/last", handleChatGetLast).Methods("GET")
+
+	router.
+		PathPrefix("/attachments/").
+		Handler(http.StripPrefix("/attachments/", http.FileServer(http.Dir(AttachmentDirectory))))
+
+	router.HandleFunc("/attachments", handleAttachmentsGetAll).Methods("GET")
+	router.HandleFunc("/attachments/{id}", handleAttachmentsGet).Methods("GET")
 
 	//
 	// Finally, welcome and meta routes
@@ -37,7 +48,7 @@ func startRouter() {
 
 	// Start the router in an endless loop
 	for {
-		err := http.ListenAndServe(":1358", router)
+		err := http.ListenAndServe(Port, router)
 		log.Error().Msg(err.Error())
 		log.Error().Msg("Router failed! We messed up really bad to get this far. Restarting the router...")
 		time.Sleep(time.Second * 10)

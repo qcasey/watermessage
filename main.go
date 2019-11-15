@@ -34,6 +34,7 @@ func init() {
 	server = ServerType{}
 	server.Chats = make([]*Chat, 0)
 	server.ChatMap = make(map[string]*Chat, 0)
+	server.Attachments = make(map[string]Attachment, 0)
 }
 
 func main() {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -18,6 +19,7 @@ type ServerType struct {
 	DB           *sql.DB
 	SQLiteFile   string
 	LastModified time.Time
+	Attachments  map[string]Attachment
 	lock         sync.RWMutex
 }
 
@@ -33,18 +35,29 @@ type Chat struct {
 }
 
 type Message struct {
-	RowID         string  `json:RowID,omitempty`
-	Text          *string `json:Text`
-	IsFromMe      bool    `json:IsFromMe`
-	Delivered     bool    `json:Delivered`
-	Date          int     `json:Date`
-	DateDelivered int     `json:DateDelivered`
-	DateRead      int     `json:DateRead`
-	Handle        Handle  `json:Handle`
+	RowID         string       `json:RowID,omitempty`
+	Text          *string      `json:Text`
+	IsFromMe      bool         `json:IsFromMe`
+	HasAttachment bool         `json:HasAttachment`
+	Delivered     bool         `json:Delivered`
+	Date          int          `json:Date`
+	DateDelivered int          `json:DateDelivered`
+	DateRead      int          `json:DateRead`
+	Handle        Handle       `json:Handle`
+	Attachments   []Attachment `json:Attachment`
 }
 
 type Handle struct {
 	ID *string `json:ID`
+}
+
+type Attachment struct {
+	MessageID     *string `json:MessageID`
+	ID            *string `json:ID`
+	Filename      *string `json:Filename`
+	MIMEType      *string `json:MIMEType`
+	TransferState int     `json:TransferState`
+	TotalBytes    int     `json:TotalBytes`
 }
 
 func hasBeenModified() bool {
@@ -57,6 +70,27 @@ func hasBeenModified() bool {
 		return true
 	}
 	return false
+}
+
+func handleAttachmentsGetAll(w http.ResponseWriter, r *http.Request) {
+	server.lock.RLock()
+	defer server.lock.RUnlock()
+	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: server.Attachments})
+}
+
+func handleAttachmentsGet(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	server.lock.RLock()
+	defer server.lock.RUnlock()
+
+	attachment, ok := server.Attachments[params["id"]]
+	if !ok {
+		em := fmt.Sprintf("Could not fetch attachment id %s. It likely doesn't exist", params["id"])
+		log.Error().Msg(em)
+		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: ""})
+	}
+
+	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: attachment})
 }
 
 func handleChatGetAll(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +125,6 @@ func handleChatGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: chat})
-
 }
 
 func handleChatGetLast(w http.ResponseWriter, r *http.Request) {

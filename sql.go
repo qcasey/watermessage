@@ -38,7 +38,7 @@ func parseMessageRows(rows *sql.Rows) []Message {
 	defer rows.Close()
 	for rows.Next() {
 		m := Message{}
-		err := rows.Scan(&m.RowID, &m.Handle.ID, &m.Text, &m.IsFromMe, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
+		err := rows.Scan(&m.RowID, &m.Handle.ID, &m.Text, &m.IsFromMe, &m.HasAttachment, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
 		if err != nil {
 			log.Error().Msg(err.Error())
 		}
@@ -46,7 +46,35 @@ func parseMessageRows(rows *sql.Rows) []Message {
 			newID := "me"
 			m.Handle.ID = &newID
 		}
+		if m.HasAttachment {
+			attachments, err := getAttachment(m.RowID)
+			if err == nil {
+				m.Attachments = attachments
+			} else {
+				log.Error().Msg(err.Error())
+			}
+		}
 		out = append(out, m)
+	}
+	return out
+}
+
+func parseAttachmentRows(rows *sql.Rows) []Attachment {
+	var out []Attachment
+	if rows == nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		m := Attachment{}
+		err := rows.Scan(&m.MessageID, &m.ID, &m.Filename, &m.MIMEType, &m.TransferState, &m.TotalBytes)
+		if err != nil {
+			log.Error().Msg(err.Error())
+		}
+		out = append(out, m)
+
+		// Ensure attachment is registered with the server
+		server.Attachments[*m.MessageID] = m
 	}
 	return out
 }
@@ -66,6 +94,15 @@ func parseChatRows(rows *sql.Rows) []*Chat {
 	return out
 }
 
+func getAttachment(messageID string) ([]Attachment, error) {
+	sql := fmt.Sprintf("SELECT message_attachment_join.message_id, attachment.ROWID, attachment.filename, attachment.mime_type, attachment.transfer_state, attachment.total_bytes FROM attachment LEFT OUTER JOIN message_attachment_join ON message_attachment_join.attachment_id = attachment.ROWID WHERE message_attachment_join.message_id = %s ORDER BY attachment.created_date DESC", messageID)
+	rows, err := query(sql)
+	if err != nil {
+		return nil, err
+	}
+	return parseAttachmentRows(rows), nil
+}
+
 func getAllMessagesInChat(chatID string) ([]Message, error) {
 	// Default to handle ID, check if it's a group chat
 	selector := "chat.room_name IS NULL AND handle.id"
@@ -73,7 +110,7 @@ func getAllMessagesInChat(chatID string) ([]Message, error) {
 		selector = "chat.chat_identifier"
 	}
 
-	sql := fmt.Sprintf("SELECT DISTINCT message.ROWID, handle.id, message.text, message.is_from_me, message.is_delivered, message.date, message.date_delivered, message.date_read FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.service = 'iMessage' AND %s = '%s' ORDER BY message.date DESC LIMIT 50", selector, chatID)
+	sql := fmt.Sprintf("SELECT DISTINCT message.ROWID, handle.id, message.text, message.is_from_me, message.cache_has_attachments, message.is_delivered, message.date, message.date_delivered, message.date_read FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.service = 'iMessage' AND %s = '%s' ORDER BY message.date DESC LIMIT 50", selector, chatID)
 	rows, err := query(sql)
 	if err != nil {
 		return nil, err
@@ -88,7 +125,7 @@ func getLastMessageInChat(chatID string) (Message, error) {
 		selector = "chat.chat_identifier"
 	}
 
-	sql := fmt.Sprintf("SELECT DISTINCT message.ROWID, handle.id, message.text, message.is_from_me, message.is_delivered, message.date, message.date_delivered, message.date_read FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.service = 'iMessage' AND %s = '%s' ORDER BY message.date DESC LIMIT 1", selector, chatID)
+	sql := fmt.Sprintf("SELECT DISTINCT message.ROWID, handle.id, message.text, message.is_from_me, message.cache_has_attachments, message.is_delivered, message.date, message.date_delivered, message.date_read FROM message LEFT OUTER JOIN chat ON chat.room_name = message.cache_roomnames LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id WHERE message.service = 'iMessage' AND %s = '%s' ORDER BY message.date DESC LIMIT 1", selector, chatID)
 	rows, err := query(sql)
 	if err != nil {
 		return Message{}, err
