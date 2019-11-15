@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	AttachmentDirectory = "~/Library/Messages/Attachments/"
+	//AttachmentDirectory = "~/Library/Messages/Attachments/"
+	AttachmentDirectory = "~/Downloads/"
 	Port                = ":1358"
 )
 
@@ -26,12 +27,12 @@ func startRouter() {
 	router.HandleFunc("/chats/{id}", handleChatGet).Methods("GET")
 	router.HandleFunc("/chats/{id}/last", handleChatGetLast).Methods("GET")
 
+	router.HandleFunc("/attachments", handleAttachmentsGetAll).Methods("GET")
+	router.HandleFunc("/attachments/{id}", handleAttachmentsGet).Methods("GET")
+
 	router.
 		PathPrefix("/attachments/").
 		Handler(http.StripPrefix("/attachments/", http.FileServer(http.Dir(AttachmentDirectory))))
-
-	router.HandleFunc("/attachments", handleAttachmentsGetAll).Methods("GET")
-	router.HandleFunc("/attachments/{id}", handleAttachmentsGet).Methods("GET")
 
 	//
 	// Finally, welcome and meta routes
