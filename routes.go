@@ -16,7 +16,7 @@ import (
 
 const (
 	//AttachmentDirectory = "~/Library/Messages/Attachments/"
-	LocalDirectory = "/Downloads/"
+	LocalDirectory = "/Library/Messages/Attachments/"
 	Port           = ":1358"
 )
 
