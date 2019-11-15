@@ -10,13 +10,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Attachment corresponds to a row in the 'attachment' table
 type Attachment struct {
-	MessageID     *string `json:MessageID`
-	ID            *string `json:ID`
-	Filename      *string `json:Filename`
-	MIMEType      *string `json:MIMEType`
-	TransferState int     `json:TransferState`
-	TotalBytes    int     `json:TotalBytes`
+	RowID         *string `json:"RowID"`
+	MessageID     *string `json:"MessageID"`
+	Filename      *string `json:"Filename"`
+	MIMEType      *string `json:"MIMEType"`
+	TransferState int     `json:"TransferState"`
+	TotalBytes    int     `json:"TotalBytes"`
 }
 
 func handleAttachmentsGetAll(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +49,7 @@ func parseAttachmentRows(rows *sql.Rows) []Attachment {
 	defer rows.Close()
 	for rows.Next() {
 		m := Attachment{}
-		err := rows.Scan(&m.MessageID, &m.ID, &m.Filename, &m.MIMEType, &m.TransferState, &m.TotalBytes)
+		err := rows.Scan(&m.MessageID, &m.RowID, &m.Filename, &m.MIMEType, &m.TransferState, &m.TotalBytes)
 		if err != nil {
 			log.Error().Msg(err.Error())
 		}

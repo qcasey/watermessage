@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ServerType holds global state of the iMessage server
 type ServerType struct {
 	Chats        []*Chat
 	ChatMap      map[string]*Chat
@@ -80,18 +81,18 @@ func refreshChats() {
 	updatedChats := 0
 	for _, chat := range newChats {
 		// Only fetch entire chat history if there are new messages
-		if isNewMessage(chat.ID) {
-			updatedChats++
-			chat.Messages, err = getAllMessages(chat.ID)
-			if err != nil {
-				log.Error().Msg(err.Error())
-			}
-			if len(chat.Messages) > 0 {
-				chat.LastMessageDate = chat.Messages[0].Date
-				server.ChatMap[chat.ID] = chat
-			} else {
-				log.Debug().Msg(fmt.Sprintf("0 messages in row %d, %s", chat.RowID, chat.ID))
-			}
+		if !hasNewMessages(chat.ID) {
+			continue
+		}
+
+		updatedChats++
+		chat.Messages, err = getAllMessages(chat.ID)
+		if err != nil {
+			log.Error().Msg(err.Error())
+		}
+		if len(chat.Messages) > 0 {
+			chat.LastMessageDate = chat.Messages[0].Date
+			server.ChatMap[chat.ID] = chat
 		}
 	}
 

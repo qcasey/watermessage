@@ -8,20 +8,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Message corresponds to each row in 'message' table
 type Message struct {
-	RowID         string       `json:RowID,omitempty`
-	Text          *string      `json:Text`
-	IsFromMe      bool         `json:IsFromMe`
-	HasAttachment bool         `json:HasAttachment`
-	Delivered     bool         `json:Delivered`
-	Date          int          `json:Date`
-	DateDelivered int          `json:DateDelivered`
-	DateRead      int          `json:DateRead`
-	Handle        Handle       `json:Handle`
-	Attachments   []Attachment `json:Attachment`
+	RowID         string       `json:"RowID"`
+	Text          *string      `json:"Text"`
+	IsFromMe      bool         `json:"IsFromMe"`
+	HasAttachment bool         `json:"HasAttachment"`
+	Delivered     bool         `json:"Delivered"`
+	Date          int          `json:"Date"`
+	DateDelivered int          `json:"DateDelivered"`
+	DateRead      int          `json:"DateRead"`
+	Handle        Handle       `json:"Handle"`
+	Attachments   []Attachment `json:"Attachment"`
 }
 
-func isNewMessage(chatID string) bool {
+// Handle might be expanded in the future, I'm not sure
+type Handle struct {
+	RowID *string `json:"RowID"`
+}
+
+func hasNewMessages(chatID string) bool {
 	serverChat, ok := server.ChatMap[chatID]
 	if !ok {
 		return true
@@ -89,13 +95,13 @@ func parseMessageRows(rows *sql.Rows) []Message {
 	defer rows.Close()
 	for rows.Next() {
 		m := Message{}
-		err := rows.Scan(&m.RowID, &m.Handle.ID, &m.Text, &m.IsFromMe, &m.HasAttachment, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
+		err := rows.Scan(&m.RowID, &m.Handle.RowID, &m.Text, &m.IsFromMe, &m.HasAttachment, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
 		if err != nil {
 			log.Error().Msg(err.Error())
 		}
-		if m.Handle.ID == nil {
+		if m.Handle.RowID == nil {
 			newID := "me"
-			m.Handle.ID = &newID
+			m.Handle.RowID = &newID
 		}
 		if m.HasAttachment {
 			attachments, err := getAttachment(m.RowID)

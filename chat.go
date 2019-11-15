@@ -10,19 +10,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Chat corresponds to each row in the 'chat' table, along with a lock for the Messages
 type Chat struct {
-	RowID           int       `json:RowID`
-	ID              string    `json:ID`
-	Name            string    `json:Name`
-	DisplayName     string    `json:DisplayName`
-	ServiceName     string    `json:DisplayName`
-	Messages        []Message `json:Messages`
-	LastMessageDate int       `json:LastMessageDate`
+	RowID           int       `json:"RowID"`
+	ID              string    `json:"ID"`
+	Name            string    `json:"Name"`
+	DisplayName     string    `json:"DisplayName"`
+	ServiceName     string    `json:"ServiceName"`
+	Messages        []Message `json:"Messages"`
+	LastMessageDate int       `json:"LastMessageDate"`
 	lock            sync.RWMutex
-}
-
-type Handle struct {
-	ID *string `json:ID`
 }
 
 func handleChatGetAll(w http.ResponseWriter, r *http.Request) {

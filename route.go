@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/MrDoctorKovacic/MDroid-Core/format"
@@ -14,10 +15,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// These should be set in a UI somewhere
 const (
-	//AttachmentDirectory = "~/Library/Messages/Attachments/"
-	LocalDirectory = "/Library/Messages/Attachments/"
-	Port           = ":1358"
+	AttachmentDirectory = "/Library/Messages/Attachments/"
+	Port                = ":1358"
+	AuthToken           = "NOT_IN_USE_YET"
 )
 
 func startRouter() {
@@ -27,7 +29,7 @@ func startRouter() {
 	if err != nil {
 		panic(err)
 	}
-	attachmentsDirectory := fmt.Sprintf("%s%s", user.HomeDir, LocalDirectory)
+	attDir := fmt.Sprintf("%s%s", user.HomeDir, AttachmentDirectory)
 
 	// Init router
 	router := mux.NewRouter()
@@ -41,7 +43,7 @@ func startRouter() {
 
 	router.
 		PathPrefix("/file/").
-		Handler(http.StripPrefix("/file/", http.FileServer(http.Dir(attachmentsDirectory))))
+		Handler(http.StripPrefix("/file/", http.FileServer(http.Dir(attDir))))
 
 	//
 	// Finally, welcome and meta routes
@@ -66,13 +68,12 @@ func startRouter() {
 }
 
 // authMiddleware will match http bearer token again the one hardcoded in our config
-/*
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		reqToken := r.Header.Get("Authorization")
 		splitToken := strings.Split(reqToken, "Bearer")
-		if len(splitToken) != 2 || strings.TrimSpace(splitToken[1]) != settings.AuthToken {
+		if len(splitToken) != 2 || strings.TrimSpace(splitToken[1]) != AuthToken {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("403 - Invalid Auth Token!"))
 		}
@@ -80,7 +81,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		// Call the next handler, which can be another middleware in the chain, or the final handler.
 		next.ServeHTTP(w, r)
 	})
-}*/
+}
 
 func checksumMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
