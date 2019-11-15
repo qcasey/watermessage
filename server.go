@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,6 +21,26 @@ type ServerType struct {
 	lock         sync.RWMutex
 }
 
+func query(SQL string) (*sql.Rows, error) {
+	log.Debug().Msg(SQL)
+
+	if server.DB == nil {
+		log.Info().Msg("Creating new DB connection")
+		var err error
+		server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
+		if err != nil {
+			return nil, err
+		}
+		defer server.DB.Close()
+	}
+
+	rows, err := server.DB.Query(SQL)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func hasBeenModified() bool {
 	info, err := os.Stat(server.SQLiteFile)
 	if err != nil {
@@ -29,31 +50,6 @@ func hasBeenModified() bool {
 		server.LastModified = info.ModTime()
 		return true
 	}
-	return false
-}
-
-func isNewMessage(chatID string) bool {
-	serverChat, ok := server.ChatMap[chatID]
-	if !ok {
-		return true
-	}
-
-	sql := fmt.Sprintf("SELECT message_date FROM chat_message_join LEFT OUTER JOIN chat ON chat.ROWID = chat_message_join.chat_id WHERE chat_id = %d AND chat.service_name = 'iMessage' ORDER BY message_date DESC LIMIT 1", serverChat.RowID)
-	rows, err := query(sql)
-	if err != nil {
-		return true
-	}
-	defer rows.Close()
-	var lastMessageDate int
-	for rows.Next() {
-		rows.Scan(&lastMessageDate)
-	}
-
-	if serverChat.LastMessageDate != lastMessageDate {
-		log.Info().Msg(fmt.Sprintf("Row %d not found, last recorded date is %d while the server shows %d", serverChat.RowID, lastMessageDate, serverChat.LastMessageDate))
-		return true
-	}
-
 	return false
 }
 
@@ -86,7 +82,7 @@ func refreshChats() {
 		// Only fetch entire chat history if there are new messages
 		if isNewMessage(chat.ID) {
 			updatedChats++
-			chat.Messages, err = getAllMessagesInChat(chat.ID)
+			chat.Messages, err = getAllMessages(chat.ID)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
