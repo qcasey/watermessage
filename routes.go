@@ -40,8 +40,8 @@ func startRouter() {
 	router.HandleFunc("/attachments/{id}", handleAttachmentsGet).Methods("GET")
 
 	router.
-		PathPrefix("/attachments/").
-		Handler(http.StripPrefix("/attachments/", http.FileServer(http.Dir(attachmentsDirectory))))
+		PathPrefix("/file/").
+		Handler(http.StripPrefix("/file/", http.FileServer(http.Dir(attachmentsDirectory))))
 
 	//
 	// Finally, welcome and meta routes
