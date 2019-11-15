@@ -43,7 +43,8 @@ func parseMessageRows(rows *sql.Rows) []Message {
 			log.Error().Msg(err.Error())
 		}
 		if m.Handle.ID == nil {
-			*m.Handle.ID = "me"
+			newID := "me"
+			m.Handle.ID = &newID
 		}
 		out = append(out, m)
 	}
