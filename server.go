@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -59,6 +62,21 @@ func hasBeenModified() bool {
 		return true
 	}
 	return false
+}
+
+func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	body, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		http.Error(w, "can't read body", http.StatusBadRequest)
+		return nil, fmt.Errorf("Error reading body: %v", err)
+	}
+
+	// Put body back
+	r.Body.Close() //  must close
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+	return body, nil
 }
 
 // Get group chats?

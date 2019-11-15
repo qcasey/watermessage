@@ -3,8 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
+	"github.com/MrDoctorKovacic/MDroid-Core/format"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
 
@@ -52,6 +57,67 @@ type Message struct {
 // Handle might be expanded in the future, I'm not sure
 type Handle struct {
 	RowID *string `json:"RowID"`
+}
+
+func sendMessage(chatID string, message string, file *string) error {
+	if chatID == "" {
+		return fmt.Errorf("Empty chat ID")
+	}
+	chat, ok := server.ChatMap[chatID]
+	if !ok {
+		return fmt.Errorf("Chat does not exist in server. You may need to refresh, or check your ID")
+	}
+
+	// Parse recipients or file
+	var (
+		arg    []string
+		script string
+	)
+
+	// Switch command if we're sending an attachment
+	if file == nil {
+		for _, handle := range chat.Recipients {
+			arg = append(arg, *handle.RowID)
+		}
+		script = sendMessageScript
+	} else {
+		path, err := filepath.Abs(*file)
+		if err != nil {
+			return fmt.Errorf("Failed opening file %s", *file)
+		}
+		arg = append(arg, path)
+		script = sendFileScript
+	}
+
+	// Setup and Execute
+	cmd := exec.Command("oascript", "-e", script, strings.Join(arg, ","))
+	err := cmd.Run()
+	if err != nil {
+		log.Error().Msg(err.Error())
+	}
+
+	return nil
+}
+
+func handleSendMessage(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	body, err := readBody(w, r)
+	if err != nil {
+		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: err.Error()})
+	}
+
+	if body == nil {
+		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: "Unknown request body"})
+	}
+
+	err = sendMessage(params["id"], string(body), nil)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		format.WriteResponse(&w, r, format.JSONResponse{OK: false, Output: err.Error()})
+		return
+	}
+
+	format.WriteResponse(&w, r, format.JSONResponse{OK: true, Output: "OK"})
 }
 
 func hasNewMessages(chatID string) bool {
