@@ -14,14 +14,14 @@ import (
 
 // Chat corresponds to each row in the 'chat' table, along with a lock for the Messages
 type Chat struct {
-	RowID           int               `json:"RowID"`
-	ID              string            `json:"ID"`
-	Name            string            `json:"Name"`
-	DisplayName     string            `json:"DisplayName"`
-	ServiceName     string            `json:"ServiceName"`
-	Messages        []Message         `json:"Messages"`
-	Recipients      map[string]Handle `json:"Recipients"`
-	LastMessageDate int               `json:"LastMessageDate"`
+	RowID           int             `json:"RowID"`
+	ID              string          `json:"ID"`
+	Name            string          `json:"Name"`
+	DisplayName     string          `json:"DisplayName"`
+	ServiceName     string          `json:"ServiceName"`
+	Messages        []Message       `json:"Messages"`
+	Recipients      map[string]bool `json:"Recipients"`
+	LastMessageDate int             `json:"LastMessageDate"`
 	lock            sync.RWMutex
 }
 
@@ -116,6 +116,10 @@ func refreshChats() {
 			log.Error().Msg(err.Error())
 		}
 		if len(chat.Messages) > 0 {
+			// Ensure chat has these messages registered
+			for _, message := range chat.Messages {
+				chat.Recipients[*message.Handle.ID] = true
+			}
 			chat.LastMessageDate = chat.Messages[0].Date
 			server.ChatMap[chat.ID] = chat
 		}

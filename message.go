@@ -56,7 +56,7 @@ type Message struct {
 
 // Handle might be expanded in the future, I'm not sure
 type Handle struct {
-	RowID *string `json:"RowID"`
+	ID *string `json:"ID"`
 }
 
 func sendMessage(chatID string, message string, file *string) error {
@@ -188,13 +188,13 @@ func parseMessageRows(rows *sql.Rows) []Message {
 	defer rows.Close()
 	for rows.Next() {
 		m := Message{}
-		err := rows.Scan(&m.RowID, &m.Handle.RowID, &m.Text, &m.IsFromMe, &m.HasAttachment, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
+		err := rows.Scan(&m.RowID, &m.Handle.ID, &m.Text, &m.IsFromMe, &m.HasAttachment, &m.Delivered, &m.Date, &m.DateDelivered, &m.DateRead)
 		if err != nil {
 			log.Error().Msg(err.Error())
 		}
-		if m.Handle.RowID == nil {
+		if m.Handle.ID == nil {
 			newID := "me"
-			m.Handle.RowID = &newID
+			m.Handle.ID = &newID
 		}
 		if m.HasAttachment {
 			attachments, err := getAttachment(m.RowID)
