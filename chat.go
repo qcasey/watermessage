@@ -80,7 +80,7 @@ func parseChatRows(rows *sql.Rows) []*Chat {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		c := Chat{}
+		c := Chat{Recipients: make(map[string]bool, 0)}
 		rows.Scan(&c.RowID, &c.ID, &c.Name, &c.DisplayName)
 		out = append(out, &c)
 	}
