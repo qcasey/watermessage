@@ -14,14 +14,14 @@ import (
 
 // Chat corresponds to each row in the 'chat' table, along with a lock for the Messages
 type Chat struct {
-	RowID           int       `json:"RowID"`
-	ID              string    `json:"ID"`
-	Name            string    `json:"Name"`
-	DisplayName     string    `json:"DisplayName"`
-	ServiceName     string    `json:"ServiceName"`
-	Messages        []Message `json:"Messages"`
-	Recipients      []Handle  `json:"Recipients"`
-	LastMessageDate int       `json:"LastMessageDate"`
+	RowID           int               `json:"RowID"`
+	ID              string            `json:"ID"`
+	Name            string            `json:"Name"`
+	DisplayName     string            `json:"DisplayName"`
+	ServiceName     string            `json:"ServiceName"`
+	Messages        []Message         `json:"Messages"`
+	Recipients      map[string]Handle `json:"Recipients"`
+	LastMessageDate int               `json:"LastMessageDate"`
 	lock            sync.RWMutex
 }
 

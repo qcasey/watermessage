@@ -76,8 +76,8 @@ func sendMessage(chatID string, message string, file *string) error {
 
 	// Switch command if we're sending an attachment
 	if file == nil {
-		for _, handle := range chat.Recipients {
-			arg = append(arg, *handle.RowID)
+		for ID := range chat.Recipients {
+			arg = append(arg, ID)
 		}
 		script = sendMessageScript
 	} else {
