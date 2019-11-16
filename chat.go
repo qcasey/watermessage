@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/MrDoctorKovacic/MDroid-Core/format"
 	"github.com/gorilla/mux"
@@ -83,4 +85,46 @@ func parseChatRows(rows *sql.Rows) []*Chat {
 		out = append(out, &c)
 	}
 	return out
+}
+
+func refreshChats() {
+	server.lock.Lock()
+	defer server.lock.Unlock()
+
+	var err error
+	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+	defer server.DB.Close()
+
+	sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM chat LEFT OUTER JOIN chat_message_join ON chat.ROWID = chat_message_join.chat_id WHERE chat.service_name = 'iMessage' ORDER BY chat_message_join.message_date DESC"
+	rows, err := query(sql)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+	newChats := parseChatRows(rows)
+
+	start := time.Now()
+	updatedChats := 0
+	for _, chat := range newChats {
+		// Only fetch entire chat history if there are new messages
+		if !hasNewMessages(chat.ID) {
+			continue
+		}
+
+		updatedChats++
+		chat.Messages, err = getAllMessages(chat.ID)
+		if err != nil {
+			log.Error().Msg(err.Error())
+		}
+		if len(chat.Messages) > 0 {
+			chat.LastMessageDate = chat.Messages[0].Date
+			server.ChatMap[chat.ID] = chat
+		}
+	}
+
+	log.Debug().Msg(fmt.Sprintf("Took %dms to parse %d rows", time.Since(start).Milliseconds(), updatedChats))
 }
