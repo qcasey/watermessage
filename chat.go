@@ -91,12 +91,7 @@ func refreshChats() {
 	server.lock.Lock()
 	defer server.lock.Unlock()
 
-	var err error
-	server.DB, err = sql.Open("sqlite3", server.SQLiteFile)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
+	server.openDB()
 	defer server.DB.Close()
 
 	sql := "SELECT DISTINCT chat.ROWID, chat.chat_identifier, chat.guid, chat.display_name FROM chat LEFT OUTER JOIN chat_message_join ON chat.ROWID = chat_message_join.chat_id WHERE chat.service_name = 'iMessage' ORDER BY chat_message_join.message_date DESC"
